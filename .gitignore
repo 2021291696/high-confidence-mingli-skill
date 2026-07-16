@@ -1,0 +1,11 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# 用户数据永远不该出现在本仓库——引擎与个人命盘/记忆分离存放。
+# User data must never appear in this repo — engine and personal chart/memory are stored separately.
+chart.md
+memory.md
+memory-archive/
