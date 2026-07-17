@@ -3,7 +3,7 @@
 > 八字 / 紫微斗数 / 七政四余 **三盘互译**的命理对话伴侣。
 > 不是"AI 算命"——是一套带置信度体系、可自我校准的解读引擎。
 >
-> A Chinese metaphysics companion for Claude Code, built on **three-chart cross-translation** (BaZi / Ziwei Doushu / Qizheng Siyu). Not fortune-cookie generation — an interpretation engine with a confidence system and a self-calibration loop.
+> A Chinese metaphysics companion for agent CLIs (Claude Code / Codex / Kimi Code — any CLI that reads SKILL.md), built on **three-chart cross-translation** (BaZi / Ziwei Doushu / Qizheng Siyu). Not fortune-cookie generation — an interpretation engine with a confidence system and a self-calibration loop.
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## 安装 · Install
 
-把本仓库克隆到 Claude Code 的 skills 目录：
+把本仓库克隆到 agent CLI 的 skills 目录：
 
 ```bash
 # macOS / Linux
@@ -44,9 +44,11 @@ cd ~/.claude/skills/fortune-telling && git pull
 
 > **引擎与你的数据是分离的**：`git pull` 只更新引擎，你的命盘和记忆存在 `~/.claude/fortune-telling/`，不受升级影响，也不会被误提交。
 
+> **不止 Claude Code**：本 skill 是纯 Markdown 指令 + 本地文件，任何支持 SKILL.md 的 agent CLI（Codex、Kimi Code 等）都可使用——克隆到对应 CLI 的 skills 目录（如 `~/.codex/skills/fortune-telling`）即可，数据目录路径不变。
+
 ## 使用 · Usage
 
-在 Claude Code 中说 `/fortune-telling`，或直接开口（触发词自动命中）：
+在 agent CLI 中说 `/fortune-telling`，或直接开口（触发词自动命中）：
 
 ```
 今日运势 / 本月感情运 / 今年事业运
@@ -110,7 +112,7 @@ Key mechanics:
 - **Graceful degradation**: works with BaZi alone; missing charts cap the confidence ceiling accordingly
 - **Privacy by design**: engine and user data are fully separated — your chart lives outside the skill directory and is never uploaded
 
-**Install**: clone this repo into `~/.claude/skills/fortune-telling`, then say `/fortune-telling` in Claude Code. First run walks you through a ~5-minute chart onboarding (birth data → computed Four Pillars with calendar cross-validation; Ziwei/Qizheng optionally imported from apps like 文墨天机). All data stays local under `~/.claude/fortune-telling/`.
+**Install**: clone this repo into `~/.claude/skills/fortune-telling`, then say `/fortune-telling` in your agent CLI. First run walks you through a ~5-minute chart onboarding (birth data → computed Four Pillars with calendar cross-validation; Ziwei/Qizheng optionally imported from apps like 文墨天机). All data stays local under `~/.claude/fortune-telling/`.
 
 *Note: interpretation content is primarily in Chinese, as the source metaphysics tradition is Chinese.*
 
