@@ -1,0 +1,210 @@
+/**
+ * 紫微斗数排盘 CLI — high-confidence-mingli-skill 内置引擎
+ *
+ * [来源] 拷贝自 ziwei-doushu skill (~/.agents/skills/ziwei-doushu/scripts/pai_pan.ts)，2026-10-01。
+ * 本仓为独立副本（mingli v4 三盘引擎之一），上游修复不同步至此；本副本专属改动见 git log。
+ * 引擎：vendor/（Renhuai123/ziwei-doushu@88194a4，MIT），底层排盘 iztro 2.6.1。
+ * 输出以脚本 stdout 为准：十二宫、大限、格局、四化均由引擎计算，禁止口算覆盖。
+ *
+ * 用法（在本目录先 npm install 一次）：
+ *   npx tsx pai_pan.ts --solar 1990-05-15 --shichen 午 --sex 男
+ *   npx tsx pai_pan.ts --solar 1990-05-15 --hour 12:30 --sex 男 --name 张三 --place 北京
+ *
+ * 参数：
+ *   --solar YYYY-MM-DD   阳历生日（必填）
+ *   --hour HH:MM         具体出生时间（与 --shichen 互斥）
+ *   --shichen 子|丑|寅|卯|辰|巳|午|未|申|酉|戌|亥  时辰地支（与 --hour 互斥）
+ *   --sex 男|女           必填（决定大限顺逆）
+ *   --name  姓名（可选，仅展示）
+ *   --place 出生地（可选，仅展示）
+ *   --age-year YYYY      以该年份计算当前年龄/当前大限（默认当年，供流年复核）
+ */
+
+import { generateChart, getLunarInfo } from './vendor/algorithm';
+import { detectPatterns, getMingGongSummary } from './vendor/patterns';
+import { getSiHuaByStem, getLiuNianSiHua, getYearStemIndex, getYearBranchIndex } from './vendor/sihua';
+import { STEMS, BRANCHES } from './vendor/constants';
+
+interface Args {
+  solar?: string;
+  hour?: string;
+  shichen?: string;
+  sex?: string;
+  name?: string;
+  place?: string;
+  ageYear?: number;
+}
+
+class UsageError extends Error {}
+
+function fail(msg: string): never {
+  throw new UsageError(msg);
+}
+
+function parseArgs(argv: string[]): Args {
+  const args: Args = {};
+  for (let i = 0; i < argv.length; i++) {
+    const key = argv[i];
+    const value = argv[i + 1];
+    switch (key) {
+      case '--solar': args.solar = value; i++; break;
+      case '--hour': args.hour = value; i++; break;
+      case '--shichen': args.shichen = value; i++; break;
+      case '--sex': args.sex = value; i++; break;
+      case '--name': args.name = value; i++; break;
+      case '--place': args.place = value; i++; break;
+      case '--age-year': args.ageYear = parseInt(value, 10); i++; break;
+      default: fail('未知参数（仅支持 --solar --hour --shichen --sex --name --place --age-year）');
+    }
+  }
+  return args;
+}
+
+/** HH:MM → 时辰地支索引（23:00-00:59=子, 01-02:59=丑, ...） */
+function hourToShichenIndex(hhmm: string | undefined): number {
+  const m = hhmm ? hhmm.match(/^(\d{1,2}):(\d{2})$/) : null;
+  if (!m) fail('--hour 格式应为 HH:MM');
+  const h = parseInt(m[1], 10);
+  if (Number.isNaN(h) || h < 0 || h > 23) fail('--hour 小时应为 0-23');
+  return Math.floor(((h + 1) % 24) / 2);
+}
+
+const SHICHEN_NAMES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+const LEVEL_NAMES: Record<string, string> = {
+  excellent: '上格',
+  good: '良格',
+  neutral: '中性',
+  caution: '警示',
+};
+
+function starText(star: { name: string; type: string; brightness?: string; siHua?: string }): string {
+  const parts = [star.name];
+  if (star.type === 'major' && star.brightness === 'bright') parts.push('(庙旺)');
+  if (star.type === 'major' && star.brightness === 'dim') parts.push('(落陷)');
+  if (star.siHua) parts.push('化' + star.siHua);
+  return parts.join(' ');
+}
+
+function palaceNameOf(chart: ReturnType<typeof generateChart>, starName: string): string {
+  const p = chart.palaces.find(p => p.stars.some(s => s.name === starName));
+  return p ? p.name : '不入十二宫';
+}
+
+function run() {
+  const args = parseArgs(process.argv.slice(2));
+
+  if (!args.solar || !args.sex) {
+    fail('必填: --solar YYYY-MM-DD --sex 男|女，时辰用 --hour HH:MM 或 --shichen 子');
+  }
+  const dateMatch = args.solar ? args.solar.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/) : null;
+  if (!dateMatch) fail('--solar 格式应为 YYYY-MM-DD');
+  const year = parseInt(dateMatch[1], 10);
+  const month = parseInt(dateMatch[2], 10);
+  const day = parseInt(dateMatch[3], 10);
+
+  let shichenIndex: number;
+  if (args.hour) {
+    shichenIndex = hourToShichenIndex(args.hour);
+  } else if (args.shichen) {
+    shichenIndex = SHICHEN_NAMES.indexOf(args.shichen);
+    if (shichenIndex < 0) fail('--shichen 应为 子丑寅卯辰巳午未申酉戌亥 之一');
+  } else {
+    fail('时辰必填: --hour HH:MM 或 --shichen 子（时辰未知无法定命宫，无法排盘）');
+  }
+
+  const gender = args.sex === '男' ? 'male' : args.sex === '女' ? 'female' : null;
+  if (!gender) fail('--sex 应为 男 或 女');
+
+  const chart = generateChart({
+    year, month, day, hour: shichenIndex, gender,
+    name: args.name, city: args.place,
+  });
+
+  const lunar = getLunarInfo(year, month, day);
+  const ageYear = args.ageYear ?? new Date().getFullYear();
+  const nowYear = new Date().getFullYear();
+
+  // ── 输出 ──
+  console.log('## 输入');
+  console.log('阳历：' + year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0'));
+  console.log('时辰：' + SHICHEN_NAMES[shichenIndex] + (args.hour ? '（由 ' + args.hour + ' 换算）' : ''));
+  console.log('性别：' + args.sex + (args.name ? '  姓名：' + args.name : '') + (args.place ? '  出生地：' + args.place : ''));
+
+  console.log('\n## 农历');
+  console.log('农历：' + lunar.lunarYear + '年' + (lunar.isLeapMonth ? '闰' : '') + lunar.lunarMonth + '月' + lunar.lunarDay + '日');
+  console.log('年干支：' + STEMS[lunar.yearStem] + BRANCHES[lunar.yearBranch]);
+
+  console.log('\n## 命盘');
+  const mingPalace = chart.palaces.find(p => p.branch === chart.mingGongBranch)!;
+  console.log('命宫：' + BRANCHES[chart.mingGongBranch] + '（' + STEMS[mingPalace.stem] + BRANCHES[chart.mingGongBranch] + '）');
+  console.log('身宫：' + BRANCHES[chart.shenGongBranch]);
+  console.log('五行局：' + chart.wuxingJuName);
+  console.log('紫微：' + BRANCHES[chart.ziweiPos]);
+
+  console.log('\n## 十二宫');
+  for (const p of chart.palaces) {
+    const ganZhi = STEMS[p.stem] + BRANCHES[p.branch];
+    const majors = p.stars.filter(s => s.type === 'major').map(starText);
+    const others = p.stars.filter(s => s.type !== 'major').map(starText);
+    let line = '【' + p.name + '】' + ganZhi + '｜' + (majors.length ? majors.join(' ') : '空宫');
+    if (p.isEmpty && p.borrowedFromName && p.borrowedStars?.length) {
+      line += '（借' + p.borrowedFromName + '：' + p.borrowedStars.join('、') + '）';
+    }
+    if (others.length) line += '｜' + others.join(' ');
+    if (p.daXianAge) line += '｜大限' + p.daXianAge[0] + '-' + p.daXianAge[1];
+    const marks: string[] = [];
+    if (p.isShenGong) marks.push('身宫');
+    if (p.isCurrentDaXian && ageYear === nowYear) marks.push('当前大限');
+    if (marks.length) line += '｜' + marks.join('/');
+    console.log(line);
+  }
+
+  const nativeSiHua = getSiHuaByStem(lunar.yearStem);
+  console.log('\n## 本命四化（年干 ' + STEMS[lunar.yearStem] + '）');
+  for (const type of ['禄', '权', '科', '忌'] as const) {
+    console.log('化' + type + '：' + nativeSiHua[type] + '（落 ' + palaceNameOf(chart, nativeSiHua[type]) + '）');
+  }
+
+  console.log('\n## 大限');
+  chart.daXians.forEach((dx, i) => {
+    const marker = i === chart.currentDaXianIndex ? ' ←当前' : '';
+    console.log(dx.startAge + '-' + dx.endAge + '　' + dx.palaceName + '(' + BRANCHES[dx.palaceBranch] + ')' + marker);
+  });
+
+  const patterns = detectPatterns(chart);
+  console.log('\n## 格局');
+  if (patterns.length === 0) {
+    console.log('（无匹配格局）');
+  }
+  for (const pat of patterns) {
+    console.log('[' + (LEVEL_NAMES[pat.level] ?? pat.level) + '] ' + pat.name + ' — ' + pat.description);
+    console.log('  出处：' + (pat.source ?? '未标注'));
+    const cond = pat.conditions;
+    if (cond?.bonus?.length) console.log('  加分：' + cond.bonus.join('；'));
+    if (cond?.breaking?.length) console.log('  破格警示：' + cond.breaking.join('；'));
+  }
+
+  const summary = getMingGongSummary(chart);
+  console.log('\n## 命宫小结');
+  console.log('主星：' + (summary.stars.length ? summary.stars.join('、') : '空宫（借对宫）'));
+  console.log('星性：' + summary.nature + '｜关键词：' + summary.keywords.join('、'));
+
+  console.log('\n## 流年（' + ageYear + ' 年，虚岁口径：' + (ageYear - year + 1) + '）');
+  const ln = getLiuNianSiHua(ageYear);
+  const lnBranch = BRANCHES[getYearBranchIndex(ageYear)];
+  console.log(ageYear + ' ' + ln.stemName + lnBranch + '年｜流年四化：禄-' + ln.transforms['禄'] + ' 权-' + ln.transforms['权'] + ' 科-' + ln.transforms['科'] + ' 忌-' + ln.transforms['忌']);
+  for (const type of ['禄', '权', '科', '忌'] as const) {
+    console.log('化' + type + '：' + ln.transforms[type] + '（落 ' + palaceNameOf(chart, ln.transforms[type]) + '）');
+  }
+}
+
+try {
+  run();
+} catch (error) {
+  if (error instanceof UsageError) {
+    console.error(error.message);
+    process.exitCode = 2;
+  } else {
+    throw error;
+  }
+}

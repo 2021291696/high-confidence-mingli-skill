@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "name": "mingli-ziwei-engine",
+  "description": "high-confidence-mingli-skill 内置紫微斗数引擎 — 拷贝自 ziwei-doushu skill (2026-10-01)，引擎 vendored from Renhuai123/ziwei-doushu@88194a4 (MIT)，底层排盘为 iztro 2.6.1。运行: npx tsx pai_pan.ts --solar YYYY-MM-DD --hour HH:MM --sex 男",
+  "dependencies": {
+    "iztro": "2.6.1",
+    "lunar-javascript": "1.7.7"
+  },
+  "devDependencies": {
+    "tsx": "4.23.13"
+  }
+}

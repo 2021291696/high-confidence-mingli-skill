@@ -19,14 +19,15 @@
 
 核心机制：
 
+- **三套确定性排盘引擎**：八字（Meeus 定气定朔，纯标准库）/ 紫微（iztro 2.6.1）/ 七政四余（自研恒星制，口径全标注）——干支、安星、躔度一律脚本输出，**不靠大模型口算**
 - **四模式自动路由**：运势查询 / 推算推演 / 共鸣溯源 / 通用知识，开口即识别
 - **五层权重**：命格 40% + 大运 20% + 时代运 15% + 流年 15% + 流月 7% + 流日 3%
-- **四层准确性防线**：数据（硬编码推算规则+历法交叉验证）/ 解读（置信度三道题）/ 回归 / 活校准
-- **缺盘降级**：只有八字也能跑，自动降级为单盘/两盘模式并同步封顶置信度
+- **四层准确性防线**：数据（引擎优先，口算仅作离线降级并强制标注）/ 解读（置信度三道题）/ 回归 / 活校准
+- **缺盘降级**：引擎不可用时自动降级，同步封顶置信度
 
 ## 安装 · Install
 
-把本仓库克隆到 agent CLI 的 skills 目录：
+把本仓库克隆到 Claude Code 的 skills 目录：
 
 ```bash
 # macOS / Linux
@@ -41,6 +42,14 @@ git clone https://github.com/2021291696/high-confidence-mingli-skill.git "$USERP
 ```bash
 cd ~/.claude/skills/fortune-telling && git pull
 ```
+
+**启用紫微引擎（一次性）**：
+
+```bash
+cd ~/.claude/skills/fortune-telling/scripts/pai_pan_ziwei && npm install
+```
+
+八字与七政引擎是纯 Python 标准库实现，有 `python3` 即可，无需安装任何包。紫微引擎不装也能用——自动降级为缺紫微盘模式（或按旧流程从排盘 App 导入）。
 
 > **引擎与你的数据是分离的**：`git pull` 只更新引擎，你的命盘和记忆存在 `~/.claude/fortune-telling/`，不受升级影响，也不会被误提交。
 
@@ -57,12 +66,11 @@ cd ~/.claude/skills/fortune-telling && git pull
 什么是伤官配印？/ 子午冲是什么意思？
 ```
 
-**首次运行自动进入建档**：引擎检测到你还没有命盘数据，会引导你完成（约 5 分钟）：
+**首次运行自动进入建档**：引擎检测到你还没有命盘数据，会引导你完成（约 3 分钟）：
 
-1. 出生信息（公历日期 / 时间 / 地点 / 性别）→ 自动真太阳时校正
-2. 按硬编码规则排八字四柱，并做历法交叉验证
-3. 紫微 / 七政数据可选——从文墨天机、测测等 App 粘贴即可；不提供则自动降级运行
-4. 生成 `chart.md`（命盘）+ `memory.md`（记忆种子），**只存在你本地**
+1. 出生信息（公历日期 / 时间 / 地点 / 性别）
+2. 一键跑三套确定性引擎排盘（`scripts/build_chart.py`）：四柱大运 / 十二宫四化 / 十一曜躔度命度立命宫——**不需要去文墨天机、测测等 App 抄盘**
+3. 生成 `chart.md`（命盘）+ `memory.md`（记忆种子），**只存在你本地**
 
 详细流程见 [docs/onboarding.md](docs/onboarding.md)。
 
@@ -79,7 +87,13 @@ cd ~/.claude/skills/fortune-telling && git pull
 ## 目录结构 · Structure
 
 ```
-├── SKILL.md                  # 引擎主文件：路由/置信度/语气/权重/推算规则
+├── SKILL.md                  # 引擎主文件：路由/置信度/语气/权重/降级推算规则
+├── scripts/                  # 三套确定性排盘引擎（v4 新增）
+│   ├── pai_pan_bazi.py       # 八字：四柱/大运/神煞（Meeus 定气，纯标准库）
+│   ├── pai_pan_qizheng.py    # 七政：躔度/命度/立命宫/恩用难仇（自研恒星制，口径声明在文件头）
+│   ├── pai_pan_ziwei/        # 紫微：十二宫/四化/大限/格局（iztro 2.6.1，需 npm install）
+│   ├── build_chart.py        # 建档总控：出生信息 → 三引擎 → chart.md
+│   └── test_*.py             # 各引擎回归测试（对拍黄金值 + 古典规则例）
 ├── workflows/                # 五个执行流程（路由命中后读取执行）
 │   ├── fortune-daily-weekly-monthly.md   # 运势查询
 │   ├── fortune-specific.md               # 推算推演
@@ -93,10 +107,10 @@ cd ~/.claude/skills/fortune-telling && git pull
 
 ## 限制 · Limitations
 
-1. 预计算表覆盖 2024-2035，超范围年份现场推算且置信度降级
-2. 紫微/七政原局数据需从排盘工具导入，引擎不做安星与星历计算
-3. 三元九运交接点存在学派争议（本引擎统一用 2004/2024）
-4. 节气日期为近似值，边界日建议历法库交叉验证
+1. 七政四余月限/小限需限度推算，当前不包含
+2. 七政盘制为**恒星制**（角宿一=0°），与回归制排盘软件相差约 24°，属学派差异——口径与出处见 `scripts/pai_pan_qizheng.py` 文件头
+3. 紫微引擎需要 node（`npm install` 一次）；无 node 时该盘自动降级，其余两盘不受影响
+4. 三元九运交接点存在学派争议（本引擎统一用 2004/2024）
 5. 运势是概率框架，不是预言
 
 ## English Overview
@@ -112,7 +126,7 @@ Key mechanics:
 - **Graceful degradation**: works with BaZi alone; missing charts cap the confidence ceiling accordingly
 - **Privacy by design**: engine and user data are fully separated — your chart lives outside the skill directory and is never uploaded
 
-**Install**: clone this repo into `~/.claude/skills/fortune-telling`, then say `/fortune-telling` in your agent CLI. First run walks you through a ~5-minute chart onboarding (birth data → computed Four Pillars with calendar cross-validation; Ziwei/Qizheng optionally imported from apps like 文墨天机). All data stays local under `~/.claude/fortune-telling/`.
+**Install**: clone this repo into `~/.claude/skills/fortune-telling`, then say `/fortune-telling` in Claude Code. First run walks you through a ~3-minute onboarding (birth data → all three charts computed by the built-in deterministic engines — BaZi via Meeus-based solar-term math in pure stdlib Python, Ziwei via iztro 2.6.1, Qizheng via a self-built sidereal engine with fully documented school conventions; no app copy-pasting needed). All data stays local under `~/.claude/fortune-telling/`.
 
 *Note: interpretation content is primarily in Chinese, as the source metaphysics tradition is Chinese.*
 

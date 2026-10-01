@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""建档总控：出生信息 → 三引擎 → chart.md 正文。
+
+[来源] high-confidence-mingli-skill v4，2026-10-01。
+调用本目录 pai_pan_bazi（八字）、pai_pan_qizheng（七政）与
+scripts/pai_pan_ziwei/pai_pan.ts（紫微，需 node 环境，失败自动降级）。
+
+【分工约定（S2）】确定性字段（四柱/藏干/十神/大运/紫微排布/七政位置/昼夜生）
+= 脚本产出，禁止改动；判读字段（十神链/格局/调候/日主强弱/解释器种子）
+= agent 依脚本输出判定，输出中以 <!-- agent: --> 注释标明。
+
+用法：
+  python3 scripts/build_chart.py --solar 1990-05-15 --hour 14:00 --sex 男 \
+      --lat 31.23 --lon 121.47 --place 上海 --name 某某
+"""
+
+import argparse
+import subprocess
+import sys
+from datetime import date
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+
+import pai_pan_bazi as bazi  # noqa: E402
+import pai_pan_qizheng as qz  # noqa: E402
+
+ZIWEI_DIR = HERE / "pai_pan_ziwei"
+
+
+def parse_iso(text):
+    parts = [int(x) for x in text.split("-")]
+    if len(parts) != 3:
+        raise ValueError("--solar 需要 YYYY-MM-DD")
+    return parts[0], parts[1], parts[2]
+
+
+def parse_hour(text):
+    hh, mm = (int(x) for x in text.split(":"))
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        raise ValueError("--hour 需要 HH:MM")
+    return hh, mm
+
+
+def run_ziwei(y, m, d, hh, mm, sex, name, place):
+    """跑紫微引擎；无 node/依赖时返回降级说明。"""
+    cmd = ["npx", "tsx", "pai_pan.ts", "--solar", "%04d-%02d-%02d" % (y, m, d),
+           "--hour", "%02d:%02d" % (hh, mm), "--sex", sex]
+    if name:
+        cmd += ["--name", name]
+    if place:
+        cmd += ["--place", place]
+    age_year = date.today().year
+    cmd += ["--age-year", str(age_year)]
+    try:
+        proc = subprocess.run(cmd, cwd=str(ZIWEI_DIR), capture_output=True, text=True,
+                              encoding="utf-8", timeout=120, shell=(sys.platform == "win32"))
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr.strip()[:200])
+        return proc.stdout.strip(), None
+    except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
+        return None, (
+            "紫微数据缺失——内置紫微引擎需要 node 环境：`cd scripts/pai_pan_ziwei && npm install` "
+            "后重跑本脚本（当前失败原因：%s）。也可临时按旧流程从排盘 App 导入。" % exc
+        )
+
+
+def true_solar_time_text(hh, mm, lon, eot_minutes):
+    """当地真太阳时 = 北京钟表 + (经度−120)/15 小时 + 均时差。"""
+    if lon is None:
+        return "未校正（缺经度）"
+    local_mean = hh + mm / 60.0 + (lon - 120.0) / 15.0
+    true_solar = local_mean + eot_minutes / 60.0
+    th = int(true_solar) % 24
+    tm = int(round((true_solar % 1.0) * 60.0))
+    if tm == 60:
+        th, tm = (th + 1) % 24, 0
+    return "%02d:%02d（当地真太阳时；均时差 %+.0f 分）" % (th, tm, eot_minutes)
+
+
+def bazi_section(bazi_res):
+    p = bazi_res["pillars"]
+    lines = ["## 八字", "", "| 柱 | 干支 | 十神 | 藏干 | 备注 |", "|----|------|------|------|------|"]
+    labels = ("年", "月", "日", "时")
+    for i, key in enumerate(("year", "month", "day", "hour")):
+        gan, zhi, shishen, canggan = p[key]
+        note = "时间不确定时标注置信度" if key == "hour" and gan == "未知" else ""
+        lines.append("| %s | %s%s | %s | %s | %s |" % (labels[i], gan, zhi, shishen, canggan, note))
+    lines += [
+        "",
+        "**核心冲合**：<!-- agent: 依四柱列出原局冲/刑/合/害 -->",
+        "**十神链**：<!-- agent: 年→月→日→时能量传递路径 -->",
+        "**格局**：<!-- agent: 按月令透干定格局，附一句推理依据 -->",
+        "**调候**：<!-- agent: 生月寒暖燥湿 + 调候用神 -->",
+        "**日主强弱**：<!-- agent: 得令得地得势综合，附一句依据 -->",
+        "",
+        "### 神煞（脚本口径）",
+    ]
+    if bazi_res["shensha_lines"]:
+        lines += ["- " + s for s in bazi_res["shensha_lines"]]
+    else:
+        lines.append("- 无")
+    return lines
+
+
+def ziwei_section(ziwei_out, degrade_note):
+    if ziwei_out is None:
+        return ["## 紫微斗数", "", degrade_note, ""]
+    return ["## 紫微斗数（内置 iztro 引擎 stdout 原文）", "", "```", ziwei_out, "```", ""]
+
+
+def qizheng_section(qz_res):
+    lines = ["## 七政四余", ""]
+    lines.append("**命度**：%s宿%.2f度（度主五行：%s，距星 %s）" % (
+        qz_res["ming_du"]["mansion"], qz_res["ming_du"]["mansion_deg"],
+        qz_res["ming_du"]["wuxing"], qz_res["ming_du"]["star"]))
+    lines.append("**躔**：十一曜恒星黄经躔宿见下表")
+    lines.append("")
+    lines.append("| 星 | 黄道经度 | 恒星黄经 | 躔宿 | 入宿度 | 宿五行 |")
+    lines.append("|---|---|---|---|---|---|")
+    for name in qz.LUMINARIES:
+        b = qz_res["bodies"][name]
+        lines.append("| %s | %.4f | %.4f | %s宿 | %.2f | %s |" % (
+            name, b["tropical"], b["sidereal"], b["mansion"], b["mansion_deg"], b["mansion_wx"]))
+    lines.append("")
+    dn = qz_res["day_night"]
+    if dn["type"] in ("极昼", "极夜"):
+        lines.append("**昼生/夜生**：%s（%s）" % (dn["type"], dn.get("note", "")))
+    else:
+        lines.append("**昼生/夜生**：%s（日出 %.1f 时 / 日落 %.1f 时，当地平太阳时）" % (
+            dn["type"], dn["sunrise_local"], dn["sunset_local"]))
+    mg = qz_res["ming_gong"]
+    lines.append("**立命宫**：%s宫（宫五行 %s；果老安命法：太阳 %s 宫 + %s 时顺数至卯）" % (
+        mg["zhi"], mg["wuxing"], mg["sun_palace"], mg["hour_zhi"]))
+    lines.append("")
+    lines.append("**难仇恩用**（以命度宿五行为我）：")
+    lines.append("")
+    lines.append("| 关系 | 五行 | 对应 | 含义 |")
+    lines.append("|------|------|------|------|")
+    meaning = {"恩": "生我者——印贵扶持", "用": "我生者——才华施展",
+               "难": "克我者——压力侵害", "仇": "我克者——消耗争斗", "同": "同我者——命度同气"}
+    for key in ("恩", "用", "难", "仇"):
+        members = qz_res["en_yong"].get(key, [])
+        wxs = sorted({qz.LUMINARIES_WUXING[m2] for m2 in members})
+        lines.append("| %s | %s | %s | %s |" % (
+            key, "、".join(wxs) if wxs else "—", "、".join(members) if members else "—", meaning[key]))
+    return lines
+
+
+def dayun_section(bazi_res):
+    lines = ["## 大运表", "", "- 方向：%s｜起运：%s" % (
+        "顺排" if bazi_res["forward"] else "逆排", bazi_res["qiyun_text"]), "",
+        "| 大运序 | 年龄范围 | 干支 |", "|---|---|---|"]
+    for seq, ages, gz in bazi_res["dayun_rows"]:
+        lines.append("| %s | %s | %s |" % (seq, ages, gz))
+    lines.append("")
+    lines.append("<!-- 紫微大限列：可由 agent 从紫微 stdout 的「大限」节补入（可缺） -->")
+    return lines
+
+
+def main():
+    parser = argparse.ArgumentParser(description="三引擎建档 → chart.md 正文")
+    parser.add_argument("--solar", required=True, help="公历 YYYY-MM-DD")
+    parser.add_argument("--hour", required=True, help="HH:MM（北京时间）")
+    parser.add_argument("--sex", required=True, choices=("男", "女"))
+    parser.add_argument("--lat", type=float, required=True, help="纬度（北正）")
+    parser.add_argument("--lon", type=float, required=True, help="经度（东正）")
+    parser.add_argument("--place", help="出生地")
+    parser.add_argument("--name", help="称呼")
+    args = parser.parse_args()
+
+    try:
+        y, m, d = parse_iso(args.solar)
+        hh, mm = parse_hour(args.hour)
+    except ValueError as exc:
+        parser.error(str(exc))
+        return 2
+
+    # 八字
+    bazi_res = bazi.compute(
+        solar_date=date(y, m, d), hour=hh, minute=mm, sex=args.sex, place=args.place)
+
+    # 七政
+    qz_res, qz_warnings = qz.compute((y, m, d), hh, mm, args.lat, args.lon, args.place)
+
+    # 紫微（可降级）
+    ziwei_out, ziwei_note = run_ziwei(y, m, d, hh, mm, args.sex, args.name, args.place)
+
+    out = []
+    out.append("# 命盘数据（chart.md）")
+    out.append("")
+    out.append("> 本文件由 `scripts/build_chart.py` 生成（三引擎确定性排盘），存放于 `~/.claude/fortune-telling/chart.md`。")
+    out.append("> 确定性字段以脚本输出为准；`<!-- agent: -->` 标记的判读字段由 agent 依脚本结果补全。")
+    out.append("")
+    out.append("## 基本信息")
+    out.append("")
+    out.append("| 项 | 值 | 备注 |")
+    out.append("|----|----|------|")
+    out.append("| 称呼 | %s | |" % (args.name or "（未提供）"))
+    out.append("| 性别 | %s | 大运顺逆 + 十神感情映射必需 |" % args.sex)
+    out.append("| 公历出生 | %04d-%02d-%02d %02d:%02d | 北京时间 |" % (y, m, d, hh, mm))
+    out.append("| 真太阳时 | %s | 经度 %.2f |" % (
+        true_solar_time_text(hh, mm, args.lon, qz_res["eot_minutes"]), args.lon))
+    out.append("| 出生地 | %s | 纬 %.2f，经 %.2f |" % (args.place or "（未提供）", args.lat, args.lon))
+    out.append("| 建档日期 | %s | |" % date.today().isoformat())
+    out.append("| 数据来源 | 内置三引擎（八字 Meeus 定气 / 紫微 iztro / 七政 自研恒星制） | |")
+    out.append("")
+    out += bazi_section(bazi_res)
+    out += ziwei_section(ziwei_out, ziwei_note)
+    out += qizheng_section(qz_res)
+    out += dayun_section(bazi_res)
+    if qz_warnings:
+        out.append("## 警告")
+        for w in qz_warnings:
+            out.append("- %s" % w)
+        out.append("")
+    out.append("## 解释器种子")
+    out.append("")
+    out.append("见 memory.md「运行时画像」。（agent 建档后按 SKILL.md §3 推导规则从上表提取写入 memory.md）")
+    out.append("")
+    print("\n".join(out))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
