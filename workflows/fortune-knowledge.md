@@ -14,30 +14,33 @@
 
 模糊边界: "偏印是什么？我是不是？" → 先本 workflow 解释概念，再走共鸣溯源对照，两段合一输出。
 
-## Phase 1: 知识检索
+## Phase 1: 知识检索（references 查表优先）
 
-从以下数据源提取与该概念相关的定义、规则、对照关系:
-- SKILL.md §7 推算规则: 四化表、年上起月法、十神判定、藏干表等通用规则
-- SKILL.md §13 领域信号映射: 该概念在各领域中的对应
+从以下数据源提取与该概念相关的定义、规则、对照关系（**先查表，AI 记忆只补表里没有的**）:
+- `references/ziwei/patterns.md` + `classics.md`: 格局类/星曜类概念的权威条目（带出处）
+- `references/bazi/classical-texts.md`: 十神/格局/调候类概念的典籍摘要
+- `references/qizheng/reading.md`: 恩用难仇/度主/昼夜取重条目
+- SKILL.md §7 推算规则（降级路径）: 四化表、年上起月法、十神判定、藏干表等通用规则
+- `references/domain-signals.md`: 该概念在各领域中的对应
 - chart.md（仅用于可选对照，不作分析锚点）: 该概念在用户盘中的实例
-- AI 自身命理知识: 概念定义、学派分歧、常见误解
+- AI 自身命理知识: 仅用于查表无果时的补充，须标注「表外补充」
 
-输出: { definitions: string[], rules: string[], cross_references: string[] }
+输出: { definitions: string[], rules: string[], citations: string[], cross_references: string[] }
 
 ## Phase 2: 三盘对照
 
 有子 agent 工具时 parallel（无则顺序内联）:
 - **八字**: 该概念在八字体系中的表现
-  - 任务: 定义/特征/常见误解
-  - schema: `{ plate: "八字", manifestation: string, key_features: string[], has_direct_match: boolean }`
+  - 任务: 定义/特征/常见误解，定义引 `references/bazi/classical-texts.md` 条目并标注典籍
+  - schema: `{ plate: "八字", manifestation: string, citation: string, key_features: string[], has_direct_match: boolean }`
 
 - **紫微**: 该概念在紫微体系中的表现
-  - 任务: 定义/特征/常见误解
-  - schema: 同上
+  - 任务: 定义/特征/常见误解，定义引 `references/ziwei/classics.md` 或 `patterns.md` 条目并标注书名+章节
+  - schema: 同上（含 citation）
 
 - **七政**: 该概念在七政体系中的表现
-  - 任务: 定义/特征/常见误解
-  - schema: 同上
+  - 任务: 定义/特征/常见误解，引 `references/qizheng/reading.md` 条目并标注出处
+  - schema: 同上（含 citation）
 
 无直接对应的盘标注: "该概念在X盘中无直接对应"
 

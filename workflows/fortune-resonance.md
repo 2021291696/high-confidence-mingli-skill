@@ -23,21 +23,23 @@
 
 输出: { propositions: [{ content: string, type: "核心"|"边缘" }] }
 
-## Phase 2: 逐命题并行验证
+## Phase 2: 逐命题并行验证（典籍口径）
 
-对每个命题执行（有子 agent 工具时 parallel，无则顺序内联）:
+对每个命题执行（有子 agent 工具时 parallel，无则顺序内联）。**验证依据先查 references**——
+"偏印人容易过度内化"这类命题，先查 `references/bazi/classical-texts.md` 的偏印条目与
+`references/ziwei/` 相关条目，再对照盘面：
 - **八字验证**: 该命题在八字中的支撑/矛盾
-  - 输入: 命题 + 原局八字(chart.md)
+  - 输入: 命题 + 原局八字(chart.md) + references 典籍条目
   - 仅使用八字信号，不引入其他体系
-  - schema: `{ proposition: string, support: string, confidence: "✅✅✅"|"✅✅"|"✅"|"⚠️"|"❌" }`
+  - schema: `{ proposition: string, support: string, citation: string, confidence: "✅✅✅"|"✅✅"|"✅"|"⚠️"|"❌" }`
 
 - **紫微验证**（有数据时）: 该命题在紫微中的支撑/矛盾
-  - 输入: 命题 + 原局紫微(chart.md)
+  - 输入: 命题 + 原局紫微(chart.md) + references 典籍条目
   - 仅使用紫微信号
   - schema: 同上
 
 - **七政验证**（有数据时）: 该命题在七政中的支撑/矛盾
-  - 输入: 命题 + 原局七政(chart.md)
+  - 输入: 命题 + 原局七政(chart.md) + `references/qizheng/reading.md` 条目
   - 仅使用七政信号
   - schema: 同上
 
@@ -79,6 +81,8 @@
 |------|------|------|------|--------|
 | 命题A | [信号] | [信号] | [信号] | ✅✅✅ |
 | ... | ... | ... | ... | ... |
+
+> 依据：<典籍名·章节>「原文」（命题所引的典籍条目，原样保留）
 
 ### 综合共鸣
 [定性等级 + 说明：哪些命中是实质性的，哪些只是名字像]
