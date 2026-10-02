@@ -7,12 +7,12 @@ Thumbs.db
 # 紫微引擎的 node 依赖不进库（npm install 重建）
 node_modules/
 
+# 运行时垃圾
+__pycache__/
+.mimosa/
+
 # 用户数据永远不该出现在本仓库——引擎与个人命盘/记忆分离存放。
 # User data must never appear in this repo — engine and personal chart/memory are stored separately.
 chart.md
 memory.md
 memory-archive/
-
-# 运行时垃圾
-.mimosa/
-__pycache__/
