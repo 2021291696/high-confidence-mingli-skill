@@ -640,13 +640,15 @@ def format_report(result, warnings, meta):
     lines.append("- 精度：日月 0.05° / 行星角分级 / 升度含均时差校正")
     lines.append("")
     lines.append("## 七政四余躔度")
-    lines.append("| 星 | 黄道经度 | 恒星黄经 | 躔宿 | 入宿度 | 宿五行 |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| 星 | 黄道经度 | 恒星黄经 | 躔宿 | 入宿度 | 宿五行 | 躔宫 |")
+    lines.append("|---|---|---|---|---|---|---|")
     for name in LUMINARIES:
         b = result["bodies"][name]
+        palace = palace_of(b["sidereal"])
         lines.append(
-            "| %s | %.4f | %.4f | %s宿 | %.2f | %s |"
-            % (name, b["tropical"], b["sidereal"], b["mansion"], b["mansion_deg"], b["mansion_wx"])
+            "| %s | %.4f | %.4f | %s宿 | %.2f | %s | %s宫 |"
+            % (name, b["tropical"], b["sidereal"], b["mansion"], b["mansion_deg"],
+               b["mansion_wx"], palace)
         )
     lines.append("")
     if result.get("ming_du") is None:
@@ -660,10 +662,11 @@ def format_report(result, warnings, meta):
     mg = result["ming_gong"]
     lines.append("## 命度（真升点，恒星制）")
     lines.append("- 黄道经度：%.4f → 恒星 %.4f" % (md["tropical"], md["sidereal"]))
-    lines.append("- 命躔：%s宿%.2f度（度主五行：%s，距星 %s）" % (md["mansion"], md["mansion_deg"], md["wuxing"], md["star"]))
+    lines.append("- 命躔：%s宿%.2f度（度主五行：%s，距星 %s，所在 %s宫）" % (
+        md["mansion"], md["mansion_deg"], md["wuxing"], md["star"], palace_of(md["sidereal"])))
     lines.append("")
     lines.append("## 立命宫（果老安命法）")
-    lines.append("- 太阳踞 %s 宫，生时 %s 时 → 命宫在 %s 宫（宫五行 %s）" % (
+    lines.append("- 太阳踞 %s 宫，生时 %s 时 → 命宫在 %s 宫（支五行 %s；宫主五行见果老宫分所属）" % (
         mg["sun_palace"], mg["hour_zhi"], mg["zhi"], mg["wuxing"]))
     lines.append("")
     dn = result["day_night"]

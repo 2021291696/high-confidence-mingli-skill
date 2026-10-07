@@ -3,7 +3,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![Node.js](https://img.shields.io/badge/node-18%2B-green)
-![Engine Tests](https://img.shields.io/badge/engine_tests-25_passing-brightgreen)
+![Engine Tests](https://img.shields.io/badge/engine_tests-27_passing-brightgreen)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 **简体中文** | [English](#english)
@@ -26,7 +26,7 @@
 
 | | 机制 | 一句话 |
 |---|------|--------|
-| 🔢 | **确定性排盘引擎** | 四柱/安星/躔度全部由三套引擎计算（Meeus 定气八字 / iztro 紫微 / 自研恒星制七政），25 项回归测试盯着，大模型只负责解读，不负责算数 |
+| 🔢 | **确定性排盘引擎** | 四柱/安星/躔度全部由三套引擎计算（Meeus 定气八字 / iztro 紫微 / 自研恒星制七政），27 项回归测试盯着，大模型只负责解读，不负责算数 |
 | 📜 | **典籍考证式解读** | 解读先查 `references/` 资料层（穷通宝典、紫微全书、果老星宗……），每条论断挂典籍出处——引文原样，断语才转写 |
 | ⭐ | **置信度只标在盘与盘之间** | 三盘结论一致才给 ⭐⭐⭐；单盘论断不标星，它的可信度来自典籍出处和引擎盘面 |
 | 🔁 | **越用越准的校准闭环** | 建档时用你已发生的 3-5 件事校准解读模型，之后每次收束继续修正——校准只调解释器参数，永不改典籍 |
@@ -79,10 +79,12 @@ cd ~/.claude/skills/fortune-telling/scripts/pai_pan_ziwei && npm install
 ### 工作原理（给想深究的人）
 
 - **排盘层** `scripts/`：八字引擎用 Meeus 定气定朔（纯标准库，1900-2100）；紫微用 iztro 2.6.1；
-  七政为自研恒星制引擎（角宿一=0°，Hipparcos 宿度表，果老安命法）——**全部学派口径在
-  引擎文件头声明出处**。三引擎共 25 项回归测试：对拍 JPL DE441 校正级的开源参照黄金值 +
-  古典安命三例 + 夜子时/立春边界用例
-- **解读层** `references/`：bazi/紫微两套经过时间验证的 skill 资料逐字节移植 + 自建七政判读册，
+  七政为自研恒星制引擎（角宿一=0°，Hipparcos 宿度表，果老安命法，输出躔宿+躔宫）——**全部学派口径在
+  引擎文件头声明出处**。三引擎共 27 项回归测试：对拍 JPL DE441 校正级的开源参照黄金值 +
+  古典安命三例 + 夜子时/立春边界用例 + 二十八宿落宫全表
+- **解读层** `references/`：bazi/紫微两套经过时间验证的 skill 资料逐字节移植 + 七政四余原典库
+  （2026-10 起典籍化：五件库文件辑自殆知阁《张果星宗》《星学大成》《乾元秘旨》——读盘总纲四十诀、
+  十一曜逐曜断（入宫化名/躔度断/照宫断）、十二宫体系、庙旺乐喜制刑与升殿查表、格局库），
   溯源表见 `references/README.md`
 - **管线**：解读管线三段式（各盘典籍式解读 → 置信度跨盘联系 → 斯多葛收束），五个模式 +
   详批模式共用；规则全文见 [SKILL.md](SKILL.md)
@@ -99,7 +101,8 @@ cd ~/.claude/skills/fortune-telling/scripts/pai_pan_ziwei && npm install
 ### 限制与口径
 
 1. 七政盘制为恒星制（角宿一=0°），与回归制排盘软件相差约 24°，属学派差异，口径全标注
-2. 七政月限/小限（限度推算）不包含
+2. 七政月限/小限（限度推算）不包含；洞微百六限等倒限内容不入典籍库、解读不断流年应期；
+   变曜/化曜/神煞层（年干起例）同理不做
 3. 紫微引擎需要 node（`npm install` 一次），缺环境时该盘自动降级
 4. 三元九运交接点存在学派争议（本 skill 统一用 2004/2024）
 5. 运势是概率框架，不是预言——命理分析仅供参考，人生在于自身的努力和选择
@@ -126,7 +129,7 @@ citations, and which gets more accurate the longer you use it.
 
 | | Mechanism | In one line |
 |---|-----------|-------------|
-| 🔢 | **Deterministic chart engines** | Four Pillars / star-placing / planetary degrees are computed by three engines (Meeus-based BaZi / iztro Ziwei / self-built sidereal Qizheng), guarded by 25 regression tests — the LLM only interprets, never calculates |
+| 🔢 | **Deterministic chart engines** | Four Pillars / star-placing / planetary degrees are computed by three engines (Meeus-based BaZi / iztro Ziwei / self-built sidereal Qizheng), guarded by 27 regression tests — the LLM only interprets, never calculates |
 | 📜 | **Classical-text-grounded reading** | Interpretations look up the `references/` knowledge layer (Qiongtong Baodian, Ziwei Quanshu, Guolao Xingzong…); every claim cites its source — quotes stay verbatim, only the agent's own verdicts are rewritten |
 | ⭐ | **Confidence marks cross-chart links only** | ⭐⭐⭐ only when all three systems agree; single-chart claims carry no stars — their credibility comes from citations and engine-computed charts |
 | 🔁 | **Calibration loop** | At onboarding, 3-5 of your past events verify the reading model; every session keeps refining it — calibration tunes the interpreter, never the classics |
@@ -192,7 +195,8 @@ local under `~/.claude/fortune-telling/`, never uploaded.
   reference, classical ascending-rule examples, and edge cases (late-Zi hour,
   spring-equinox boundary)
 - **Interpretation layer** `references/`: two time-tested skill collections
-  ported byte-for-byte, plus a self-built Qizheng manual — provenance in
+  ported byte-for-byte, plus a classical Qizheng canon library (five files curated from
+  the Daizhige corpus: Zhang Guo Xing Zong / Xing Xue Da Cheng / Qian Yuan Mi Zhi) — provenance in
   [references/README.md](references/README.md)
 - **Pipeline**: three-stage reading (per-chart classical interpretation →
   cross-chart confidence linkage → Stoic closing), shared by five modes plus

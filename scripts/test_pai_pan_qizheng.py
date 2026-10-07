@@ -166,6 +166,31 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(result["day_night"]["type"], "昼生")
         self.assertNotIn("Traceback", str(warnings))
 
+    def test_chan_gong_full_mansion_mapping(self):
+        """躔宫（v7 新增列）：二十八宿逐宿落宫 == 引擎文件头口径 3 的十二次分野聚合。"""
+        expect = {
+            "角": "辰", "亢": "辰", "氐": "卯", "房": "卯", "心": "卯",
+            "尾": "寅", "箕": "寅", "斗": "丑", "牛": "丑", "女": "子", "虚": "子",
+            "危": "亥", "室": "亥", "壁": "亥", "奎": "戌", "娄": "戌",
+            "胃": "酉", "昴": "酉", "毕": "酉", "觜": "申", "参": "申",
+            "井": "未", "鬼": "未", "柳": "午", "星": "午", "张": "午",
+            "翼": "巳", "轸": "巳",
+        }
+        for name, _star, start, _wx in q.MANSIONS:
+            got = q.palace_of(start + 0.5)  # 宿内取点，避边界
+            self.assertEqual(got, expect[name], msg=f"{name}宿起点 {start}°")
+
+    def test_palace_boundaries_twelve_ci(self):
+        """十二次宫界边界点（引擎口径 3，宿界继承 Hipparcos 表）。"""
+        cases = ((0.0, "辰"), (27.9, "辰"), (28.0, "卯"), (44.4, "卯"), (44.5, "寅"),
+                 (73.4, "寅"), (73.5, "丑"), (106.9, "丑"), (107.0, "子"),
+                 (128.9, "子"), (129.0, "亥"), (170.4, "亥"), (170.5, "戌"),
+                 (198.4, "戌"), (198.5, "酉"), (237.4, "酉"), (237.5, "申"),
+                 (260.9, "申"), (261.0, "未"), (297.9, "未"), (298.0, "午"),
+                 (331.9, "午"), (332.0, "巳"), (359.9, "巳"))
+        for lon, zhi in cases:
+            self.assertEqual(q.palace_of(lon), zhi, msg=f"palace_of({lon})")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

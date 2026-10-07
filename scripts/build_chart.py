@@ -113,17 +113,19 @@ def ziwei_section(ziwei_out, degrade_note):
 
 def qizheng_section(qz_res):
     lines = ["## 七政四余", ""]
-    lines.append("**命度**：%s宿%.2f度（度主五行：%s，距星 %s）" % (
+    lines.append("**命度**：%s宿%.2f度（度主五行：%s，距星 %s，所在 %s宫）" % (
         qz_res["ming_du"]["mansion"], qz_res["ming_du"]["mansion_deg"],
-        qz_res["ming_du"]["wuxing"], qz_res["ming_du"]["star"]))
-    lines.append("**躔**：十一曜恒星黄经躔宿见下表")
+        qz_res["ming_du"]["wuxing"], qz_res["ming_du"]["star"],
+        qz.palace_of(qz_res["ming_du"]["sidereal"])))
+    lines.append("**躔**：十一曜恒星黄经躔宿躔宫见下表")
     lines.append("")
-    lines.append("| 星 | 黄道经度 | 恒星黄经 | 躔宿 | 入宿度 | 宿五行 |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| 星 | 黄道经度 | 恒星黄经 | 躔宿 | 入宿度 | 宿五行 | 躔宫 |")
+    lines.append("|---|---|---|---|---|---|---|")
     for name in qz.LUMINARIES:
         b = qz_res["bodies"][name]
-        lines.append("| %s | %.4f | %.4f | %s宿 | %.2f | %s |" % (
-            name, b["tropical"], b["sidereal"], b["mansion"], b["mansion_deg"], b["mansion_wx"]))
+        lines.append("| %s | %.4f | %.4f | %s宿 | %.2f | %s | %s宫 |" % (
+            name, b["tropical"], b["sidereal"], b["mansion"], b["mansion_deg"],
+            b["mansion_wx"], qz.palace_of(b["sidereal"])))
     lines.append("")
     dn = qz_res["day_night"]
     if dn["type"] in ("极昼", "极夜"):
@@ -132,7 +134,7 @@ def qizheng_section(qz_res):
         lines.append("**昼生/夜生**：%s（日出 %.1f 时 / 日落 %.1f 时，当地平太阳时）" % (
             dn["type"], dn["sunrise_local"], dn["sunset_local"]))
     mg = qz_res["ming_gong"]
-    lines.append("**立命宫**：%s宫（宫五行 %s；果老安命法：太阳 %s 宫 + %s 时顺数至卯）" % (
+    lines.append("**立命宫**：%s宫（支五行 %s；果老安命法：太阳 %s 宫 + %s 时顺数至卯；宫主五行查 references/qizheng 宫分所属）" % (
         mg["zhi"], mg["wuxing"], mg["sun_palace"], mg["hour_zhi"]))
     lines.append("")
     lines.append("**难仇恩用**（以命度宿五行为我）：")
