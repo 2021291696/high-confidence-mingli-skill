@@ -9,7 +9,7 @@
 - 八字/七政引擎：`python3 scripts/pai_pan_bazi.py --solar YYYY-MM-DD --sex 男`、`python3 scripts/pai_pan_qizheng.py --solar ... --hour HH:MM --lat --lon`（纯标准库，无 pip 依赖）
 - 紫微引擎：`cd scripts/pai_pan_ziwei && npm install && npx tsx pai_pan.ts --solar ... --hour ... --sex ...`
 - 一键建档：`python3 scripts/build_chart.py --solar ... --hour ... --sex ... --lat ... --lon ...`
-- 测试：`python3 scripts/test_pai_pan_bazi.py`、`python3 scripts/test_pai_pan_qizheng.py`（共 25 项，改引擎必跑）
+- 测试：`python3 scripts/test_pai_pan_bazi.py`、`python3 scripts/test_pai_pan_qizheng.py`（共 27 项，改引擎必跑）
 
 ## 技术栈
 
@@ -24,6 +24,6 @@ Python 3.8+（标准库）· Node.js 18+（仅紫微引擎）· 主体是 Markdo
 
 ## 当前状态与下一步
 
-- v4 三引擎（058ca66）+ v5 典籍解读层（7b20b8f）+ v6 新 README（cdf355f）均已推送 GitHub main
-- 挂账：七政引擎与真实排盘 App 的对拍样本（≥3 张）；七政庙旺分度表未考证（引擎与解读册均不判庙旺）
+- v4 三引擎（058ca66）+ v5 典籍解读层（7b20b8f）+ v6 新 README（cdf355f）+ v7 七政四余典籍知识库（889add2：qizheng 五件原典库+引擎躔宫列+27 测试）均已推送 GitHub main
+- 挂账：七政引擎与真实排盘 App 的对拍样本（≥3 张）；七政**宿内分度**的庙旺细分仍未考证不判（宫表级庙旺/乐旺制刑/升殿自 v7 起按 states-tables.md 查表可判）
 - 注意：本仓在维护者的工作区大仓内是子目录，GitHub 独立仓为独立历史——推送走维护者的克隆同步流程，不要把工作区整仓当远端
